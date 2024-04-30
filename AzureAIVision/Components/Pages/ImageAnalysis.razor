@@ -1,0 +1,76 @@
+﻿@page "/ImageAnalysis"
+@rendermode InteractiveServer
+@using Azure.AI.Vision.ImageAnalysis
+@using AzureAIVision.Services
+@using AzureAIVision.Utils
+
+<PageTitle>Image Analysis</PageTitle>
+
+<h1>Upload image</h1>
+
+<InputFile OnChange="@OnInputFileChange" accept=".jpg,.png" />
+
+<button @onclick="SubmitAsync" disabled="@(file == null || (file != null && isLoading))">Submit</button>
+
+@if (showResult)
+{
+    <p><b>Caption:</b> @imageAnalysisResult.Caption.Text</p>
+    <p><b>Dense Captions</b></p>
+    <ul>
+        @foreach (DenseCaption caption in imageAnalysisResult.DenseCaptions.Values)
+        {
+            <li>@caption.Text</li>
+        }
+    </ul>
+    <p><b>Tags</b></p>
+    <ul>
+        @foreach (DetectedTag tag in imageAnalysisResult.Tags.Values)
+        {
+            <li>@tag.Name</li>
+        }
+    </ul>
+    <p><b>Objects</b></p>
+    <table>
+        <thead>
+            <tr>
+                <th>Object</th>
+                <th>Bounding box</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (DetectedObject obj in imageAnalysisResult.Objects.Values)
+            {
+                <tr>
+                    <td>@obj.Tags.First().Name</td>
+                    <td>@obj.BoundingBox.ToString()</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private bool isLoading = false;
+    private bool showResult = false;
+
+    private IBrowserFile file;
+    private ImageAnalysisResult imageAnalysisResult;
+
+    [Inject]
+    private IAzureVisionService azureVisionService { get; set; }
+
+    private void OnInputFileChange(InputFileChangeEventArgs e)
+    {
+        this.file = e.File;
+    }
+
+    private async Task SubmitAsync()
+    {
+        this.showResult = false;
+        this.isLoading = true;
+        var memoryStream = await StreamUtil.ToMemoryStreamAsync(this.file.OpenReadStream());
+        this.imageAnalysisResult = azureVisionService.AnalizeImage(memoryStream);
+        this.showResult = true;
+        this.isLoading = false;
+    }
+}

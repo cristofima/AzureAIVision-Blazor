@@ -1,0 +1,56 @@
+﻿@page "/Classification"
+@rendermode InteractiveServer
+@using AzureAIVision.Services
+@using AzureAIVision.Utils
+@using Microsoft.Azure.CognitiveServices.Vision.CustomVision.Prediction.Models
+
+<PageTitle>Classification</PageTitle>
+
+<h1>Upload image</h1>
+
+<InputFile OnChange="@OnInputFileChange" accept=".jpg,.png" />
+
+<button @onclick="ClassifyImage" disabled="@(file == null || (file != null && isLoading))">Classify image</button>
+
+@if (!string.IsNullOrEmpty(predictionText))
+{
+    <p>@predictionText</p>
+}
+
+@code {
+    private IBrowserFile file;
+    private IList<PredictionModel> predictions;
+
+    private bool isLoading = false;
+
+    private string predictionText = string.Empty;
+
+    [Inject]
+    private IAzureCustomVisionService azureCustomVisionService { get; set; }
+
+    private void OnInputFileChange(InputFileChangeEventArgs e)
+    {
+        this.file = e.File;
+    }
+
+    private async Task ClassifyImage()
+    {
+        this.isLoading = true;
+        this.predictionText = string.Empty;
+        var memoryStream = await StreamUtil.ToMemoryStreamAsync(this.file.OpenReadStream());
+        this.predictions = this.azureCustomVisionService.ClassifyImage(memoryStream);
+        this.isLoading = false;
+        this.SetPredictionText();
+    }
+
+    private void SetPredictionText()
+    {
+        this.predictionText = string.Empty;
+        if (this.predictions != null && this.predictions.Count > 0)
+        {
+            var prediction = this.predictions.MaxBy(p => p.Probability);
+
+            this.predictionText = $"{prediction.TagName}, {Math.Round(prediction.Probability * 100, 2)}%";
+        }
+    }
+}

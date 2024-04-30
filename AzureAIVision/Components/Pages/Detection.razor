@@ -1,0 +1,53 @@
+﻿@page "/Detection"
+@rendermode InteractiveServer
+@using AzureAIVision.Services
+@using AzureAIVision.Utils
+@using Microsoft.Azure.CognitiveServices.Vision.CustomVision.Prediction.Models
+
+<PageTitle>Detection</PageTitle>
+
+<h1>Upload image</h1>
+
+<InputFile OnChange="@OnInputFileChange" accept=".jpg,.png" />
+
+<button @onclick="DetectObjects" disabled="@(file == null || (file != null && isLoading))">Detect Objects</button>
+
+@if (prediction != null)
+{
+    <p><b>Label:</b> @prediction.TagName</p>
+    <p><b>Confidence:</b> @(prediction.Probability * 100)%</p>
+    <p><b>BoundingBox:</b> Top: @prediction.BoundingBox.Top, Left: @prediction.BoundingBox.Left, Width: @prediction.BoundingBox.Width, Height: @prediction.BoundingBox.Height</p>    
+}
+
+@code {
+    private IBrowserFile file;
+    private PredictionModel prediction;
+
+    private bool isLoading = false;
+
+    [Inject]
+    private IAzureCustomVisionService azureCustomVisionService { get; set; }
+
+    private void OnInputFileChange(InputFileChangeEventArgs e)
+    {
+        this.file = e.File;
+    }
+
+    private async Task DetectObjects()
+    {
+        this.isLoading = true;
+        this.prediction = null;
+        var memoryStream = await StreamUtil.ToMemoryStreamAsync(this.file.OpenReadStream());
+        var predictions = this.azureCustomVisionService.DetectObjects(memoryStream);
+        this.isLoading = false;
+        this.SetPrediction(predictions);
+    }
+
+    private void SetPrediction(IList<PredictionModel> predictions)
+    {
+        if (predictions != null && predictions.Count > 0)
+        {
+            this.prediction = predictions.MaxBy(p => p.Probability);
+        }
+    }
+}
